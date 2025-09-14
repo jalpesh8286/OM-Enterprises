@@ -3,46 +3,41 @@ workflows:
     name: Android Build
     max_build_duration: 60
     environment:
-      vars:
-        GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false"
       java: 17
-
+      vars:
+        GRADLE_VERSION: "8.5"
     scripts:
-      # Step 1: Ensure Gradle wrapper and project structure
-      - name: Ensure Gradle wrapper & structure
+      - name: Step 1: Unzip packaged project (if needed)
         script: |
-          if [ ! -f "./gradlew" ]; then
-            echo "Gradle wrapper missing. Creating..."
-            gradle wrapper --gradle-version 8.4
+          if [ -f project.zip ]; then
+            echo "Unzipping project.zip..."
+            unzip -o project.zip -d .
+          else
+            echo "No project.zip found, skipping unzip."
           fi
-          chmod +x gradlew
-          mkdir -p app/src/main/java
-          mkdir -p app/src/main/res
 
-      # Step 2: Configure gradle.properties with AndroidX + Jetifier
-      - name: Configure Gradle properties
+      - name: Step 2: Ensure Gradle wrapper exists
         script: |
-          echo "android.useAndroidX=true" >> "$CM_BUILD_DIR/gradle.properties"
-          echo "android.enableJetifier=true" >> "$CM_BUILD_DIR/gradle.properties"
-          echo "org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" >> "$CM_BUILD_DIR/gradle.properties"
+          echo "Checking for gradlew..."
+          if [ ! -f "./gradlew" ]; then
+            echo "gradlew not found. Generating wrapper with Gradle $GRADLE_VERSION"
+            gradle wrapper --gradle-version $GRADLE_VERSION
+            chmod +x gradlew
+          else
+            echo "gradlew already exists."
+          fi
 
-      # Step 3: Build Debug APK + AAB
-      - name: Build Debug APK and AAB
+      - name: Step 3: Build Debug APK and AAB
         script: |
-          ./gradlew clean assembleDebug bundleDebug --stacktrace --warning-mode all
-
-      # Step 4: Collect Reports
-      - name: Collect build reports
-        script: |
-          mkdir -p $CM_BUILD_DIR/reports
-          cp -r app/build/reports/* $CM_BUILD_DIR/reports || true
+          ./gradlew clean
+          ./gradlew assembleDebug
+          ./gradlew bundleRelease
 
     artifacts:
       - app/build/outputs/**/*.apk
       - app/build/outputs/**/*.aab
-      - reports/**
 
     publishing:
       email:
         recipients:
-          - your-email@example.com
+          - pateljalpesh28@gmail.com
