@@ -2,12 +2,18 @@ workflows:
   android-workflow:
     name: Android Build
     max_build_duration: 60
+    instance_type: mac_mini_m1
+
     environment:
-      java: 17
+      groups:
+        - keystore_credentials
       vars:
-        GRADLE_VERSION: "8.5"
+        GRADLE_OPTS: "-Xmx4096m"
+      java: 17
+      android: true
+
     scripts:
-      - name: Step 1: Unzip packaged project (if needed)
+      - name: "Step 1 - Unzip packaged project (if needed)"
         script: |
           if [ -f project.zip ]; then
             echo "Unzipping project.zip..."
@@ -16,28 +22,26 @@ workflows:
             echo "No project.zip found, skipping unzip."
           fi
 
-      - name: Step 2: Ensure Gradle wrapper exists
+      - name: "Step 2 - Ensure Gradle Wrapper exists"
         script: |
-          echo "Checking for gradlew..."
           if [ ! -f "./gradlew" ]; then
-            echo "gradlew not found. Generating wrapper with Gradle $GRADLE_VERSION"
-            gradle wrapper --gradle-version $GRADLE_VERSION
-            chmod +x gradlew
+            echo "Gradle wrapper not found, generating..."
+            gradle wrapper
           else
-            echo "gradlew already exists."
+            echo "Gradle wrapper already exists."
           fi
+          chmod +x gradlew
 
-      - name: Step 3: Build Debug APK and AAB
+      - name: "Step 3 - Clean Project"
         script: |
           ./gradlew clean
-          ./gradlew assembleDebug
-          ./gradlew bundleRelease
+
+      - name: "Step 4 - Build Debug APK and AAB"
+        script: |
+          ./gradlew assembleDebug bundleDebug
 
     artifacts:
       - app/build/outputs/**/*.apk
       - app/build/outputs/**/*.aab
-
-    publishing:
-      email:
-        recipients:
-          - pateljalpesh28@gmail.com
+      - build/outputs/**/*.apk
+      - build/outputs/**/*.aab
