@@ -1,16 +1,27 @@
 workflows:
   android-workflow:
-    name: Build OM Enterprises Android APK (auto-detect project root)
+    name: Build Android App
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      vars:
+        PROJECT_DIR: "app"
     scripts:
-      - echo "Step 1: Unzip packaged project..."
-      - unzip -o om_project.zip -d workspace_unzipped
-      - echo "Step 2: Find Android project directory (settings.gradle or build.gradle)..."
-      - PROJECT_DIR=$(find workspace_unzipped -maxdepth 5 -type f \( -name "settings.gradle" -o -name "build.gradle" -o -name "build.gradle.kts" \) -print | head -n 1)
-      - if [ -z "$PROJECT_DIR" ]; then echo "ERROR: Could not find settings.gradle or build.gradle in unzipped project."; ls -la workspace_unzipped; exit 1; fi
-      - PROJECT_DIR=$(dirname "$PROJECT_DIR")
-      - echo "Project root detected at: $PROJECT_DIR"
-      - cd "$PROJECT_DIR"
-      - echo "Listing files in project root:"; ls -la
-      - if [ -f ./gradlew ]; then echo "Found gradlew — ensure it's executable"; chmod +x ./gradlew; echo "Running ./gradlew clean assembleDebug"; ./gradlew clean assembleDebug; else echo "gradlew not found — falling back to system gradle"; gradle clean assembleDebug; fi
+      - name: Step 1: Clean Project
+        script: |
+          echo "Cleaning project..."
+          rm -rf build
+      - name: Step 2: Check Gradle wrapper
+        script: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            echo "Using project gradlew"
+          else
+            echo "No gradlew found. Exiting..."
+            exit 1
+          fi
+      - name: Step 3: Build APK
+        script: |
+          ./gradlew assembleRelease
     artifacts:
       - app/build/outputs/**/*.apk
