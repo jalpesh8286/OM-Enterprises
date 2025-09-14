@@ -6,11 +6,9 @@ workflows:
       vars:
         GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false"
       java: 17
-      android:
-        image: "latest"
 
     scripts:
-      # Step 1: Ensure gradle wrapper and project structure
+      # Step 1: Ensure Gradle wrapper and project structure
       - name: Ensure Gradle wrapper & structure
         script: |
           if [ ! -f "./gradlew" ]; then
