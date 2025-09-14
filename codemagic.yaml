@@ -1,22 +1,41 @@
 workflows:
   android-workflow:
-    name: Build OM Enterprises Android APK
+    name: Build OM Enterprises Android APK (generate wrapper if missing)
     scripts:
       - name: "Step 1: Unzip packaged project"
         script: |
           echo "Unzipping om_project.zip..."
           unzip -o om_project.zip -d workspace_unzipped
           cd workspace_unzipped
+          echo "Listing files in unzipped workspace:"
           ls -la
-      - name: "Step 2: Build with Gradle"
+      - name: "Step 2: Ensure Gradle wrapper exists (generate if missing)"
+        script: |
+          cd workspace_unzipped
+          # If gradle-wrapper.jar missing, generate wrapper with system gradle
+          if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "gradle-wrapper.jar missing. Generating wrapper using system gradle..."
+            # Use system gradle to create wrapper that uses Gradle 8.1.1
+            # If 'gradle' is not in PATH, this will fail and we fallback to running directly with system gradle later
+            if command -v gradle >/dev/null 2>&1; then
+              gradle wrapper --gradle-version 8.1.1 || ( echo "Failed to run 'gradle wrapper' — proceeding, will try fallback"; )
+            else
+              echo "System 'gradle' command not found — skipping wrapper generation"
+            fi
+          else
+            echo "gradle-wrapper.jar already present"
+          fi
+          echo "Post-check of wrapper files:"
+          ls -la gradle/wrapper || true
+      - name: "Step 3: Build (use gradlew if available, else system gradle)"
         script: |
           cd workspace_unzipped
           if [ -f ./gradlew ]; then
-            echo "Using gradlew wrapper"
+            echo "Using project gradlew"
             chmod +x ./gradlew
             ./gradlew clean assembleDebug
           else
-            echo "gradlew not found, using system gradle"
+            echo "gradlew not found — using system gradle fallback"
             gradle clean assembleDebug
           fi
     artifacts:
