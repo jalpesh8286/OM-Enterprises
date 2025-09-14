@@ -1,0 +1,12 @@
+workflows:
+  android-workflow:
+    name: Build OM Enterprises Android APK (unzips packaged project)
+    scripts:
+      - echo "Unzipping packaged project..."
+      - unzip -o om_project.zip -d .
+      - echo "Listing files after unzip..."
+      - ls -la
+      - ./gradlew clean
+      - ./gradlew assembleDebug
+    artifacts:
+      - app/build/outputs/**/*.apk
