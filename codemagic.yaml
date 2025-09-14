@@ -1,40 +1,20 @@
 workflows:
   android-workflow:
-    name: Build OM Enterprises Android APK (generate wrapper if missing)
+    name: Build OM Enterprises Android APK
     scripts:
-      - name: "Step 1: Unzip packaged project"
+      - name: "Unzip and move project"
         script: |
-          echo "Unzipping om_project.zip..."
           unzip -o om_project.zip -d workspace_unzipped
-          cd workspace_unzipped
-          echo "Listing files in unzipped workspace:"
+          mv workspace_unzipped/* .
           ls -la
-      - name: "Step 2: Ensure Gradle wrapper exists (generate if missing)"
+      - name: "Build APK"
         script: |
-          cd workspace_unzipped
-          # If gradle-wrapper.jar missing, generate wrapper with system gradle
-          if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "gradle-wrapper.jar missing. Generating wrapper using system gradle..."
-            if command -v gradle >/dev/null 2>&1; then
-              gradle wrapper --gradle-version 8.1.1 || echo "gradle wrapper failed (continuing to attempt build with system gradle)"
-            else
-              echo "System 'gradle' command not found — skipping wrapper generation"
-            fi
-          else
-            echo "gradle-wrapper.jar already present"
-          fi
-          echo "Post-check of wrapper files:"
-          ls -la gradle/wrapper || true
-      - name: "Step 3: Build (use gradlew if available, else system gradle)"
-        script: |
-          cd workspace_unzipped
           if [ -f ./gradlew ]; then
-            echo "Using project gradlew"
             chmod +x ./gradlew
-            ./gradlew clean assembleDebug --no-daemon --refresh-dependencies --stacktrace
+            ./gradlew clean assembleDebug --stacktrace --no-daemon
           else
-            echo "gradlew not found — using system gradle fallback"
-            gradle clean assembleDebug --refresh-dependencies --stacktrace
+            echo "gradlew not found, using system gradle"
+            gradle clean assembleDebug --stacktrace --no-daemon
           fi
     artifacts:
-      - workspace_unzipped/app/build/outputs/**/*.apk
+      - app/build/outputs/**/*.apk
