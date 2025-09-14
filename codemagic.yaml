@@ -10,7 +10,6 @@ workflows:
       vars:
         GRADLE_OPTS: "-Xmx4096m"
       java: 17
-      android: true
 
     scripts:
       - name: "Step 1 - Unzip packaged project (if needed)"
