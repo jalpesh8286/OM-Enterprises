@@ -1,0 +1,8 @@
+workflows:
+  android-workflow:
+    name: Build OM Enterprises Android APK (robust wrapper check)
+    scripts:
+      - echo "Checking for gradlew..."
+      - if [ -f ./gradlew ]; then chmod +x ./gradlew; echo "Using project gradlew"; ./gradlew clean assembleDebug; else echo "gradlew not found, using system gradle"; gradle clean assembleDebug; fi
+    artifacts:
+      - app/build/outputs/**/*.apk
