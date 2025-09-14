@@ -11,7 +11,7 @@ workflows:
         script: |
           echo "Cleaning project..."
           rm -rf build
-      - name: Step 2: Check Gradle wrapper
+      - name: "Step 2: Check Gradle wrapper"
         script: |
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
@@ -20,7 +20,7 @@ workflows:
             echo "No gradlew found. Exiting..."
             exit 1
           fi
-      - name: Step 3: Build APK
+      - name: "Step 3: Build APK"
         script: |
           ./gradlew assembleRelease
     artifacts:
