@@ -15,10 +15,8 @@ workflows:
           # If gradle-wrapper.jar missing, generate wrapper with system gradle
           if [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
             echo "gradle-wrapper.jar missing. Generating wrapper using system gradle..."
-            # Use system gradle to create wrapper that uses Gradle 8.1.1
-            # If 'gradle' is not in PATH, this will fail and we fallback to running directly with system gradle later
             if command -v gradle >/dev/null 2>&1; then
-              gradle wrapper --gradle-version 8.1.1 || ( echo "Failed to run 'gradle wrapper' — proceeding, will try fallback"; )
+              gradle wrapper --gradle-version 8.1.1 || echo "gradle wrapper failed (continuing to attempt build with system gradle)"
             else
               echo "System 'gradle' command not found — skipping wrapper generation"
             fi
@@ -33,10 +31,10 @@ workflows:
           if [ -f ./gradlew ]; then
             echo "Using project gradlew"
             chmod +x ./gradlew
-            ./gradlew clean assembleDebug
+            ./gradlew clean assembleDebug --no-daemon --refresh-dependencies --stacktrace
           else
             echo "gradlew not found — using system gradle fallback"
-            gradle clean assembleDebug
+            gradle clean assembleDebug --refresh-dependencies --stacktrace
           fi
     artifacts:
       - workspace_unzipped/app/build/outputs/**/*.apk
