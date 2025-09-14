@@ -7,7 +7,7 @@ workflows:
       vars:
         PROJECT_DIR: "app"
     scripts:
-      - name: Step 1: Clean Project
+      - name: "step 1: clean project"
         script: |
           echo "Cleaning project..."
           rm -rf build
