@@ -1,20 +1,50 @@
 workflows:
   android-workflow:
-    name: Build OM Enterprises Android APK
+    name: Android Build
+    max_build_duration: 60
+    environment:
+      vars:
+        GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false"
+      java: 17
+      android:
+        image: "latest"
+
     scripts:
-      - name: "Unzip and move project"
+      # Step 1: Ensure gradle wrapper and project structure
+      - name: Ensure Gradle wrapper & structure
         script: |
-          unzip -o om_project.zip -d workspace_unzipped
-          mv workspace_unzipped/* .
-          ls -la
-      - name: "Build APK"
-        script: |
-          if [ -f ./gradlew ]; then
-            chmod +x ./gradlew
-            ./gradlew clean assembleDebug --stacktrace --no-daemon
-          else
-            echo "gradlew not found, using system gradle"
-            gradle clean assembleDebug --stacktrace --no-daemon
+          if [ ! -f "./gradlew" ]; then
+            echo "Gradle wrapper missing. Creating..."
+            gradle wrapper --gradle-version 8.4
           fi
+          chmod +x gradlew
+          mkdir -p app/src/main/java
+          mkdir -p app/src/main/res
+
+      # Step 2: Configure gradle.properties with AndroidX + Jetifier
+      - name: Configure Gradle properties
+        script: |
+          echo "android.useAndroidX=true" >> "$CM_BUILD_DIR/gradle.properties"
+          echo "android.enableJetifier=true" >> "$CM_BUILD_DIR/gradle.properties"
+          echo "org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" >> "$CM_BUILD_DIR/gradle.properties"
+
+      # Step 3: Build Debug APK + AAB
+      - name: Build Debug APK and AAB
+        script: |
+          ./gradlew clean assembleDebug bundleDebug --stacktrace --warning-mode all
+
+      # Step 4: Collect Reports
+      - name: Collect build reports
+        script: |
+          mkdir -p $CM_BUILD_DIR/reports
+          cp -r app/build/reports/* $CM_BUILD_DIR/reports || true
+
     artifacts:
       - app/build/outputs/**/*.apk
+      - app/build/outputs/**/*.aab
+      - reports/**
+
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
