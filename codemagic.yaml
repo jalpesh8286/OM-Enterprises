@@ -2,14 +2,14 @@ workflows:
   android-workflow:
     name: Build OM Enterprises Android APK (auto-detect project root)
     scripts:
-      - name: Step 1: Unzip packaged project
+      - name: "Step 1: Unzip packaged project"
         script: |
           echo "Unzipping om_project.zip..."
           unzip -o om_project.zip -d workspace_unzipped
           ls -la workspace_unzipped
-      - name: Step 2: Detect project root
+      - name: "Step 2: Detect project root"
         script: |
-          PROJECT_FILE=$(find workspace_unzipped -maxdepth 6 -type f \( -name "settings.gradle" -o -name "build.gradle" -o -name "build.gradle.kts" \) -print | head -n 1)
+          PROJECT_FILE=$(find workspace_unzipped -maxdepth 6 -type f -name "settings.gradle" -o -name "build.gradle" -o -name "build.gradle.kts" -print | head -n 1)
           if [ -z "$PROJECT_FILE" ]; then
             echo "ERROR: Could not find settings.gradle or build.gradle in the unzipped project."
             ls -la workspace_unzipped
@@ -18,16 +18,4 @@ workflows:
           PROJECT_DIR=$(dirname "$PROJECT_FILE")
           echo "Project root detected at: $PROJECT_DIR"
           cd "$PROJECT_DIR"
-          ls -la
-      - name: Step 3: Ensure gradlew is executable & build
-        script: |
-          if [ -f ./gradlew ]; then
-            echo "Found gradlew - making executable and using it"
-            chmod +x ./gradlew
-            ./gradlew clean assembleDebug
-          else
-            echo "gradlew not found, using system gradle fallback"
-            gradle clean assembleDebug
-          fi
-    artifacts:
-      - app/build/outputs/**/*.apk
+          ls -
