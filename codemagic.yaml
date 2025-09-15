@@ -1,44 +1,92 @@
 workflows:
   android-workflow:
-    name: Android Build
-    max_build_duration: 60
-    instance_type: mac_mini_m1
-
+    name: Android Build (detect project root & generate wrapper)
+    max_build_duration: 90
     environment:
-      groups:
-        - keystore_credentials
-      vars:
-        GRADLE_OPTS: "-Xmx4096m"
       java: 17
+      vars:
+        GRADLE_VERSION: "8.5"
 
     scripts:
-      - name: "Step 1 - Unzip packaged project (if needed)"
+      - name: "Step 1 - Unzip packaged project (if present)"
         script: |
-          if [ -f project.zip ]; then
-            echo "Unzipping project.zip..."
-            unzip -o project.zip -d .
+          if [ -f "om_project.zip" ]; then
+            echo "-> om_project.zip found, unzipping to workspace_unzipped/"
+            unzip -o om_project.zip -d workspace_unzipped
+            ls -la workspace_unzipped
           else
-            echo "No project.zip found, skipping unzip."
+            echo "-> om_project.zip not found, using repo files as-is"
+            ls -la
           fi
 
-      - name: "Step 2 - Ensure Gradle Wrapper exists"
+      - name: "Step 2 - Detect Gradle project root"
         script: |
+          # Find the first settings.gradle / build.gradle in workspace_unzipped or repo root
+          PROJECT_FILE=$(find workspace_unzipped . -maxdepth 6 -type f \( -name "settings.gradle" -o -name "build.gradle" -o -name "settings.gradle.kts" -o -name "build.gradle.kts" \) -print | head -n 1 || true)
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "ERROR: No settings.gradle or build.gradle found in repo or inside om_project.zip"
+            echo "Listing top-level files for debugging:"
+            ls -la
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          echo "Detected project root: $PROJECT_DIR"
+          # Export PROJECT_DIR for later steps
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $CM_ENV_FILE
+          ls -la "$PROJECT_DIR"
+
+      - name: "Step 3 - Ensure AndroidX flags in gradle.properties"
+        script: |
+          # ensure gradle.properties exists and has AndroidX flags
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "PROJECT_DIR not set; aborting"
+            exit 1
+          fi
+          GP="$PROJECT_DIR/gradle.properties"
+          echo "Ensuring $GP contains AndroidX flags"
+          mkdir -p "$(dirname "$GP")"
+          touch "$GP"
+          # idempotent append
+          grep -qxF "android.useAndroidX=true" "$GP" || echo "android.useAndroidX=true" >> "$GP"
+          grep -qxF "android.enableJetifier=true" "$GP" || echo "android.enableJetifier=true" >> "$GP"
+          echo "Contents of $GP:"
+          cat "$GP" || true
+
+      - name: "Step 4 - Generate Gradle wrapper if missing"
+        script: |
+          cd "$PROJECT_DIR"
+          echo "CWD: $(pwd)"
+          echo "Listing project root:"
+          ls -la
           if [ ! -f "./gradlew" ]; then
-            echo "Gradle wrapper not found, generating..."
-            gradle wrapper
+            if command -v gradle >/dev/null 2>&1; then
+              echo "gradlew not found - generating wrapper with system 'gradle' (version $GRADLE_VERSION)"
+              gradle wrapper --gradle-version "$GRADLE_VERSION" || ( echo "gradle wrapper command failed"; ls -la; exit 1 )
+            else
+              echo "System 'gradle' not available in PATH. Cannot generate wrapper inside CI. Will attempt system gradle later."
+            fi
           else
-            echo "Gradle wrapper already exists."
+            echo "gradlew already present"
           fi
-          chmod +x gradlew
+          # make executable if present
+          if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
+          echo "After wrapper step - listing:"
+          ls -la
 
-      - name: "Step 3 - Clean Project"
+      - name: "Step 5 - Build (prefers gradlew, else system gradle fallback)"
         script: |
-          ./gradlew clean
+          cd "$PROJECT_DIR"
+          echo "Building from project dir: $(pwd)"
+          if [ -f ./gradlew ]; then
+            echo "Using ./gradlew"
+            ./gradlew clean assembleDebug --no-daemon --stacktrace --refresh-dependencies
+          else
+            echo "./gradlew not present — using system gradle"
+            gradle clean assembleDebug --stacktrace --refresh-dependencies
+          fi
 
-      - name: "Step 4 - Build Debug APK and AAB"
-        script: |
-          ./gradlew assembleDebug bundleDebug
-
+    # capture APK/AAB wherever they end up (broad globs)
     artifacts:
-      - build/outputs/**/*.apk
-      - build/outputs/**/*.aab
+      - "**/app/build/outputs/**/*.apk"
+      - "**/app/build/outputs/**/*.aab"
+      - "**/build/reports/**"
